@@ -5,6 +5,7 @@ node_modules/
 data/
 
 # sandbox test target: keep the folder, ignore generated content
+
 _sandbox/_posts/*
 _sandbox/assets/
 !_sandbox/_posts/.gitkeep
@@ -15,3 +16,4 @@ _sandbox/assets/
 Thumbs.db
 .vscode/
 .idea/
+.claude
