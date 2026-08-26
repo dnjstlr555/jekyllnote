@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JekyllNote</title>
+  <link rel="stylesheet" href="/css/app.css" />
+  <!-- Editor.js core + plugins (UMD builds, expose globals) -->
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.30.6/dist/editorjs.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@2.8.7/dist/header.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@1.4.3/dist/nested-list.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@1.6.0/dist/checklist.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@2.7.2/dist/quote.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@2.9.0/dist/code.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@2.4.1/dist/table.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@2.9.3/dist/image.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@2.7.4/dist/embed.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@1.5.1/dist/inline-code.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.2.1/dist/underline.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@1.4.0/dist/marker.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@1.4.2/dist/delimiter.umd.min.js"></script>
+  <!-- Undo/redo (ctrl+z / ctrl+y), incl. paste operations -->
+  <script src="https://cdn.jsdelivr.net/npm/editorjs-undo@2.0.28/dist/bundle.js"></script>
+  <!-- KaTeX for math preview -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <!-- js-yaml for raw frontmatter editing -->
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">JekyllNote</div>
+      <div class="target-box">
+        <span class="target-label" data-i18n="topbar.workpath">작업 경로</span>
+        <span id="target-path" class="target-path"></span>
+        <button id="btn-change-target" class="btn btn-ghost" data-i18n="topbar.change">변경</button>
+      </div>
+      <div class="spacer"></div>
+      <span id="save-status" class="save-status"></span>
+      <button id="btn-lang" class="btn btn-ghost" title="Language">EN</button>
+      <button id="btn-new" class="btn" data-i18n="topbar.new">+ 새 글</button>
+      <button id="btn-save" class="btn" data-i18n="topbar.save">드래프트 저장</button>
+      <button id="btn-submit" class="btn btn-primary" data-i18n="topbar.submit">Submit →</button>
+    </header>
+
+    <div id="body">
+      <aside id="sidebar">
+        <div class="side-tabs">
+          <button class="side-tab active" data-tab="files" data-i18n="tab.files">파일</button>
+          <button class="side-tab" data-tab="drafts" data-i18n="tab.drafts">드래프트</button>
+        </div>
+        <div class="side-panel" id="panel-files">
+          <input id="file-filter" class="file-filter" data-i18n-ph="ph.fileSearch" placeholder="파일 검색…" />
+          <div id="file-tree" class="tree"></div>
+        </div>
+        <div class="side-panel hidden" id="panel-drafts">
+          <div id="draft-list" class="tree"></div>
+        </div>
+      </aside>
+
+      <main id="main">
+        <section id="frontmatter-panel"></section>
+        <div id="editor-wrap">
+          <div id="editorjs"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal host -->
+  <div id="modal-root"></div>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/blocks/prompt.js"></script>
+  <script src="/js/blocks/mathblock.js"></script>
+  <script src="/js/blocks/deflist.js"></script>
+  <script src="/js/blocks/inline-math.js"></script>
+  <script src="/js/blocks/rawmd.js"></script>
+  <script src="/js/frontmatter.js"></script>
+  <script src="/js/editor-config.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

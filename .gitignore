@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# app-local data (drafts, target config) — never commit
+data/
+
+# sandbox test target: keep the folder, ignore generated content
+_sandbox/_posts/*
+_sandbox/assets/
+!_sandbox/_posts/.gitkeep
+
+# logs / OS / editor cruft
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
