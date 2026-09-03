@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureDirs, getConfig, DRAFTS_DIR } from './lib/config-store.js';
+import { safeJoin } from './lib/safe-path.js';
 import { configRouter } from './routes/config.js';
 import { filesRouter } from './routes/files.js';
 import { draftsRouter } from './routes/drafts.js';
@@ -27,6 +28,19 @@ async function main() {
     res.sendFile(path.join(DRAFTS_DIR, id, 'images', file), (err) => {
       if (err && !res.headersSent) res.status(404).end();
     });
+  });
+
+  // Serve the target site's /assets read-only, so posts that use root-relative
+  // local image paths (/assets/img/...) render in the editor preview. Read-only
+  // + safeJoin: never writes, never escapes the target root.
+  app.get('/assets/*', async (req, res) => {
+    const cfg = await getConfig();
+    if (!cfg.targetRoot) return res.status(404).end();
+    try {
+      res.sendFile(safeJoin(cfg.targetRoot, decodeURIComponent(req.path.replace(/^\/+/, ''))), (err) => {
+        if (err && !res.headersSent) res.status(404).end();
+      });
+    } catch { res.status(404).end(); }
   });
 
   app.use('/api', configRouter);
