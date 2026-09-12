@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# desktop build output (electron-builder)
+dist-desktop/
+
 # app-local data (drafts, target config) — never commit
 data/
 

@@ -3,8 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// App data lives entirely inside the jekyllnote project, never in the target.
-export const DATA_DIR = path.resolve(__dirname, '..', '..', 'data');
+// App data lives entirely inside the jekyllnote project (never in the target).
+// In the packaged desktop app the project dir is read-only, so Electron passes a
+// writable OS user-data path via JN_USER_DATA.
+export const DATA_DIR = process.env.JN_USER_DATA
+  ? path.join(process.env.JN_USER_DATA, 'data')
+  : path.resolve(__dirname, '..', '..', 'data');
 export const DRAFTS_DIR = path.join(DATA_DIR, 'drafts');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 

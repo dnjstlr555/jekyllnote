@@ -1,0 +1,39 @@
+name: Build desktop apps
+
+# Manual only: run it from the repo's Actions tab → "Build desktop apps" → Run workflow.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build installer
+        run: npm run dist
+        env:
+          # Unsigned builds — don't attempt macOS code signing/notarization.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: jekyllnote-${{ matrix.os }}
+          if-no-files-found: ignore
+          path: |
+            dist-desktop/*.dmg
+            dist-desktop/*.exe
+            dist-desktop/*.AppImage

@@ -4,9 +4,12 @@
   "private": true,
   "description": "Local Editor.js-based authoring tool for a Chirpy Jekyll blog. Handles frontmatter, image localization, and safe writes to a git-tracked target folder.",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "desktop": "electron .",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -18,5 +21,18 @@
     "markdown-it-task-lists": "^2.1.1",
     "multer": "^2.2.0",
     "undici": "^6.19.8"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.dnjstlr555.jekyllnote",
+    "productName": "JekyllNote",
+    "directories": { "output": "dist-desktop" },
+    "files": ["electron/**/*", "server/**/*", "public/**/*", "package.json"],
+    "mac": { "target": "dmg", "category": "public.app-category.productivity" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage", "category": "Utility" }
   }
 }
