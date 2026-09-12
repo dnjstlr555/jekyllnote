@@ -4,7 +4,7 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +35,8 @@ async function start() {
   // config-store.js reads this to keep drafts/config in a writable location.
   process.env.JN_USER_DATA = app.getPath('userData');
 
-  await import(path.join(__dirname, '..', 'server', 'index.js')); // starts Express on PORT
+  // Must be a file:// URL — a raw Windows path (C:\…) breaks the ESM loader.
+  await import(pathToFileURL(path.join(__dirname, '..', 'server', 'index.js')).href); // starts Express on PORT
   const base = `http://localhost:${port}`;
   await waitForServer(base);
 

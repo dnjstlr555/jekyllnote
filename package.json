@@ -30,6 +30,7 @@
     "appId": "com.dnjstlr555.jekyllnote",
     "productName": "JekyllNote",
     "directories": { "output": "dist-desktop" },
+    "asar": false,
     "files": ["electron/**/*", "server/**/*", "public/**/*", "package.json"],
     "mac": { "target": "dmg", "category": "public.app-category.productivity" },
     "win": { "target": "portable" },
