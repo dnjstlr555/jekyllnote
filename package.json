@@ -9,7 +9,7 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "desktop": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder --publish never"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -32,7 +32,7 @@
     "directories": { "output": "dist-desktop" },
     "files": ["electron/**/*", "server/**/*", "public/**/*", "package.json"],
     "mac": { "target": "dmg", "category": "public.app-category.productivity" },
-    "win": { "target": "nsis" },
+    "win": { "target": "portable" },
     "linux": { "target": "AppImage", "category": "Utility" }
   }
 }
