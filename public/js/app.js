@@ -24,17 +24,17 @@ const T = (k, p) => window.i18n.t(k, p);
 async function init() {
   i18n.applyStatic();
   wireLang();
-  await ensureTarget();
+  // Wire the UI FIRST so buttons/tabs always work, even if target selection is
+  // cancelled or fails (Electron has no window.prompt — see promptTarget).
   state.taxonomy = await API.taxonomy().catch(() => ({ tags: [], categories: [] }));
   state.fm = new FrontmatterPanel($('frontmatter-panel'), { onChange: markDirty, taxonomy: state.taxonomy });
-
   wireTopbar();
   wireSidebarTabs();
+  await newPost(); // editor + handlers ready no matter what
+
+  await ensureTarget(); // may open the folder picker on first run
   await refreshFiles();
   await refreshDrafts();
-
-  // Start on a blank new post (no draft is created until the first edit).
-  await newPost();
 
   // Paste diagnostic (observe only): logs what the clipboard actually contains,
   // so we can tell whether Notion included real image bytes or only refs.
@@ -69,7 +69,14 @@ async function ensureTarget() {
   await promptTarget();
 }
 async function promptTarget() {
-  const val = prompt(T('prompt.enterTarget'), '');
+  // Electron: native folder picker (window.prompt is unsupported there).
+  // Browser: fall back to prompt().
+  let val;
+  if (window.jnDesktop && window.jnDesktop.pickFolder) {
+    val = await window.jnDesktop.pickFolder();
+  } else {
+    val = prompt(T('prompt.enterTarget'), '');
+  }
   if (!val) return;
   try {
     const r = await API.setTarget(val);

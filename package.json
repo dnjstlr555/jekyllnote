@@ -32,8 +32,8 @@
     "directories": { "output": "dist-desktop" },
     "asar": false,
     "files": ["electron/**/*", "server/**/*", "public/**/*", "package.json"],
-    "mac": { "target": "dmg", "category": "public.app-category.productivity" },
-    "win": { "target": "portable" },
-    "linux": { "target": "AppImage", "category": "Utility" }
+    "mac": { "target": "dmg", "category": "public.app-category.productivity", "icon": "build/icon.png" },
+    "win": { "target": "portable", "icon": "build/icon.png" },
+    "linux": { "target": "AppImage", "category": "Utility", "icon": "build/icon.png" }
   }
 }

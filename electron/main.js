@@ -1,7 +1,7 @@
 // Thin Electron shell around the existing Express server.
 // It picks a free port, points the server's data dir at the OS user-data folder,
 // starts server/index.js unchanged, then opens a window on http://localhost:<port>.
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
 import path from 'node:path';
 import net from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -44,7 +44,11 @@ async function start() {
     width: 1280,
     height: 860,
     title: 'JekyllNote',
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
   });
   if (win.removeMenu) win.removeMenu();
   // Open any external (non-localhost) links in the system browser.
@@ -54,6 +58,12 @@ async function start() {
   });
   win.loadURL(base);
 }
+
+// Native folder picker for choosing the Jekyll site root (renderer → here).
+ipcMain.handle('jn-pick-folder', async () => {
+  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });
+  return r.canceled || !r.filePaths.length ? null : r.filePaths[0];
+});
 
 app.whenReady().then(start);
 app.on('window-all-closed', () => app.quit());

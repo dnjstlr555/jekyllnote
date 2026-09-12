@@ -23,3 +23,6 @@ npm start
 ```
 
 Open http://localhost:4173 and enter the absolute path to your Jekyll site root (the folder containing `_config.yml`) when prompted.
+
+## Credits
+Sticky note icons created by surang - Flaticon
