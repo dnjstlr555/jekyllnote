@@ -13,6 +13,8 @@ const state = {
   dirty: false,
   loading: false,
   saveTimer: null,
+  savedKey: null,   // snapshotKey of the last persisted state (= the loaded state until first save)
+  gen: 0,           // bumps on every document switch; stale async work checks it
 };
 
 const $ = (id) => document.getElementById(id);
@@ -35,6 +37,10 @@ async function init() {
   await ensureTarget(); // may open the folder picker on first run
   await refreshFiles();
   await refreshDrafts();
+
+  // Don't lose the last edit when the tab/window is hidden or closed.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
+  window.addEventListener('pagehide', () => { flushSave(); });
 
   // Paste diagnostic (observe only): logs what the clipboard actually contains,
   // so we can tell whether Notion included real image bytes or only refs.
@@ -217,6 +223,7 @@ function renderDraftsTab() {
 
 // "+ 새 글": blank slate. No draft is created until the first edit.
 async function newPost() {
+  await flushSave();
   state.openFile = null;
   window.JN.draftId = null;
   state.currentDraft = null;
@@ -227,6 +234,7 @@ async function newPost() {
 }
 
 async function loadDraft(id) {
+  await flushSave();
   const r = await API.getDraft(id);
   const d = r.draft;
   state.currentDraft = d;
@@ -240,6 +248,7 @@ async function loadDraft(id) {
 }
 
 async function openFile(relPath) {
+  await flushSave();
   // Answer #2: if a draft targets this file, open that draft instead.
   const existing = state.drafts.find((d) => d.targetRelPath === relPath);
   if (existing) return loadDraft(existing.id);
@@ -284,26 +293,62 @@ window.ensureDraftExists = async function ensureDraftExists() {
 async function mountEditor(data) {
   const clean = data && data.blocks ? data : { blocks: [] };
   state.loading = true;
+  state.gen += 1;
   if (!state.editor) {
-    state.editor = createEditor('editorjs', clean);
+    state.editor = createEditor('editorjs', clean, markDirty);
     await state.editor.isReady;
-    state.editor.on('change', markDirty);
     initMarkdownShortcuts(state.editor, $('editorjs'));
     if (window.Undo) state.undo = new Undo({ editor: state.editor });
   } else {
     await state.editor.render(clean);
   }
-  if (state.undo) { try { state.undo.initialize(clean); } catch {} }
+  // What the editor holds right after load (already normalized by Editor.js).
+  // Only a difference from the last persisted state counts as an edit.
+  const saved = await state.editor.save();
+  state.savedKey = snapshotKey(saved.blocks);
+  // Reset undo history to this document. initialize() alone keeps the previous
+  // file's stack/position, so Ctrl+Z would pull in the other file's content.
+  if (state.undo) { state.undo.initialize(saved.blocks); state.undo.clear(); }
   setTimeout(() => { state.loading = false; }, 60); // ignore change events from load
+}
+
+// Document state that makes up a draft: blocks (without ids) + front matter + slug.
+function snapshotKey(blocks) {
+  return JSON.stringify({
+    b: blocks.map(({ type, data }) => ({ type, data })),
+    fm: state.fm.getData(), slug: state.fm.getSlug(),
+  });
 }
 
 async function markDirty() {
   if (state.loading) return; // programmatic load/render, not a real edit
+  const gen = state.gen;
+  // No draft yet: only create one if the content really differs from what was
+  // loaded (Editor.js can emit change events while rendering a file).
+  if (!window.JN.draftId) {
+    const { blocks } = await state.editor.save();
+    if (gen !== state.gen || snapshotKey(blocks) === state.savedKey) return;
+  }
   state.dirty = true;
   setSaveStatus(T('status.editing'));
   try { await window.ensureDraftExists(); } catch (e) { console.error('[JekyllNote] draft create failed:', e.message); }
+  if (gen !== state.gen) return; // switched documents meanwhile
   clearTimeout(state.saveTimer);
-  state.saveTimer = setTimeout(() => saveDraft(false), 500); // near-continuous autosave (Google Drive 느낌)
+  state.saveTimer = setTimeout(() => { state.saveTimer = null; saveDraft(false); }, 500); // near-continuous autosave (Google Drive 느낌)
+}
+
+// Persist unsaved edits right now — before switching documents or hiding the page.
+// Compares content with the last saved state instead of trusting timers: Editor.js
+// batches change events (~0.5s) and our autosave is debounced, so an edit made
+// just before a switch may not have reached markDirty yet.
+async function flushSave() {
+  clearTimeout(state.saveTimer);
+  state.saveTimer = null;
+  if (!state.editor || state.loading) return;
+  const { blocks } = await state.editor.save();
+  if (snapshotKey(blocks) === state.savedKey) return; // nothing new
+  try { await window.ensureDraftExists(); } catch { return; }
+  await saveDraft(false);
 }
 
 async function getEditorData() {
@@ -314,14 +359,19 @@ async function getEditorData() {
 
 async function saveDraft(explicit) {
   if (explicit) { try { await window.ensureDraftExists(); } catch {} }
-  if (!window.JN.draftId) return;
+  const id = window.JN.draftId;
+  if (!id) return;
+  const gen = state.gen;
   try {
     const editorData = await getEditorData();
+    if (gen !== state.gen) return; // switched documents mid-save: never write another file's content
     const frontmatter = state.fm.getData();
-    await API.updateDraft(window.JN.draftId, {
+    const key = snapshotKey(editorData.blocks);
+    await API.updateDraft(id, {
       editorData, frontmatter, title: frontmatter.title || '',
       slug: state.fm.getSlug(), targetRelPath: computeTarget(),
     });
+    if (gen === state.gen) state.savedKey = key;
     state.dirty = false;
     setSaveStatus(T('status.saved'));
     if (explicit) toast(T('toast.saved'), 'ok');
@@ -339,6 +389,11 @@ async function openSubmitModal() {
   renderSubmitModal(plan);
 }
 
+// Shown when a new image had to be renumbered to avoid overwriting an existing file.
+function renamedBadge(img) {
+  return img.renamedFrom ? `<span class="plan-badge overwrite">${escapeHtml(T('submit.renamed', { from: img.renamedFrom }))}</span>` : '';
+}
+
 function renderSubmitModal(plan) {
   const badImgs = plan.images.filter((i) => i.ok === false);
   const overwrite = plan.exists;
@@ -349,9 +404,9 @@ function renderSubmitModal(plan) {
       <span class="plan-badge ${overwrite ? 'overwrite' : 'new'}">${overwrite ? T('submit.overwrite') : T('submit.newFile')}</span>
     </div>
     ${plan.images.length ? `<div class="plan-section-label">${escapeHtml(T('submit.images', { n: plan.images.length, dir: plan.assetRelDir }))}</div>` : ''}
-    ${plan.images.map((i) => `<div class="plan-file">${escapeHtml(i.toRel)} ${i.ok === false ? `<span class="plan-badge bad">${T('submit.sourceMissing')}</span>` : ''}</div>`).join('')}
+    ${plan.images.map((i) => `<div class="plan-file">${escapeHtml(i.toRel)} ${i.ok === false ? `<span class="plan-badge bad">${T('submit.sourceMissing')}</span>` : ''}${renamedBadge(i)}</div>`).join('')}
     ${(plan.externalImages && plan.externalImages.length) ? `<div class="plan-section-label">${escapeHtml(T('submit.extImages', { n: plan.externalImages.length }))}</div>` : ''}
-    ${(plan.externalImages || []).map((i) => `<div class="plan-file">${escapeHtml(i.toRel)} <span class="plan-badge new">↓ ${escapeHtml(i.url.slice(0, 40))}…</span></div>`).join('')}
+    ${(plan.externalImages || []).map((i) => `<div class="plan-file">${escapeHtml(i.toRel)} <span class="plan-badge new">↓ ${escapeHtml(i.url.slice(0, 40))}…</span>${renamedBadge(i)}</div>`).join('')}
     <div class="plan-section-label">${T('submit.mdPreview')}</div>
     <div class="md-preview">${escapeHtml(plan.markdown)}</div>
   `;

@@ -6,7 +6,7 @@ class RawMdBlock {
   }
   static get sanitize() { return { text: false }; }
 
-  constructor({ data }) { this.data = { text: data.text || '' }; }
+  constructor({ data, block }) { this.data = { text: data.text || '' }; this.block = block; }
 
   render() {
     const wrap = document.createElement('div');
@@ -17,7 +17,8 @@ class RawMdBlock {
     const ta = document.createElement('textarea');
     ta.value = this.data.text;
     ta.spellcheck = false;
-    ta.addEventListener('input', () => { this.data.text = ta.value; });
+    // A textarea's value isn't a DOM mutation, so tell Editor.js explicitly (autosave/undo).
+    ta.addEventListener('input', () => { this.data.text = ta.value; this.block && this.block.dispatchChange(); });
     wrap.appendChild(label);
     wrap.appendChild(ta);
     this._ta = ta;

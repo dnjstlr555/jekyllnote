@@ -134,6 +134,11 @@ body {
 .jn-def-term { font-weight: 600; outline: none; }
 .jn-def-def { padding-left: 14px; color: var(--text); outline: none; }
 .jn-def-def::before { content: ": "; color: var(--muted); }
+.jn-def-row { display: flex; align-items: center; gap: 6px; }
+.jn-def-row > .jn-def-term, .jn-def-row > .jn-def-def { flex: 1; min-width: 0; }
+.jn-del { opacity: 0; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
+.jn-def-row:hover .jn-del, .jn-del:focus { opacity: 1; }
+.jn-del:hover { color: var(--danger); }
 .jn-add { font-size: 12px; color: var(--accent); cursor: pointer; background: none; border: none; padding: 2px; }
 
 .jn-rawmd textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px; border: 1px solid #f0c36d; background: #fffdf5; border-radius: 6px; padding: 8px; min-height: 60px; }

@@ -5,6 +5,8 @@ window.API = (() => {
     if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
+      // Lets the last autosave finish while the page is closing (keepalive caps bodies at 64KB).
+      if (method === 'PUT' && opts.body.length < 60000) opts.keepalive = true;
     }
     const res = await fetch(url, opts);
     const data = await res.json().catch(() => ({}));

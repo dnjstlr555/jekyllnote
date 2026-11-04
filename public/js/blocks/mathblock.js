@@ -5,8 +5,9 @@ class MathBlock {
   }
   static get sanitize() { return { latex: false }; }
 
-  constructor({ data }) {
+  constructor({ data, block }) {
     this.data = { latex: data.latex || '' };
+    this.block = block;
   }
 
   render() {
@@ -31,7 +32,7 @@ class MathBlock {
         preview.textContent = 'LaTeX 오류: ' + e.message;
       }
     };
-    input.addEventListener('input', renderPreview);
+    input.addEventListener('input', () => { renderPreview(); this.block && this.block.dispatchChange(); });
     wrap.appendChild(input);
     wrap.appendChild(preview);
     setTimeout(renderPreview, 0);

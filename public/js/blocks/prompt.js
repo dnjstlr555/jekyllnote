@@ -5,8 +5,9 @@ class PromptBlock {
   }
   static get sanitize() { return { text: { br: true, b: {}, i: {}, a: { href: true }, code: {}, mark: {}, u: {} }, type: false }; }
 
-  constructor({ data }) {
+  constructor({ data, block }) {
     this.data = { type: data.type || 'tip', text: data.text || '' };
+    this.block = block;
   }
 
   render() {
@@ -24,7 +25,7 @@ class PromptBlock {
       if (t === this.data.type) o.selected = true;
       sel.appendChild(o);
     });
-    sel.addEventListener('change', () => { this.data.type = sel.value; wrap.dataset.type = sel.value; });
+    sel.addEventListener('change', () => { this.data.type = sel.value; wrap.dataset.type = sel.value; this.block && this.block.dispatchChange(); });
     head.textContent = '';
     head.appendChild(sel);
 

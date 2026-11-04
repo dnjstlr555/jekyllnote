@@ -27,6 +27,7 @@ window.i18n = (() => {
       // submit modal
       'submit.fileToWrite': '쓸 파일', 'submit.overwrite': '덮어쓰기', 'submit.newFile': '새 파일',
       'submit.images': '이미지 {n}개 → {dir}/', 'submit.sourceMissing': '원본 없음',
+      'submit.renamed': '이름 충돌 — {from} 에서 변경',
       'submit.extImages': '외부 이미지 {n}개 (제출 시 다운로드)', 'submit.mdPreview': '최종 마크다운 미리보기',
       'btn.cancel': '취소', 'btn.overwriteSubmit': '덮어쓰기하고 Submit', 'btn.submit': 'Submit',
       'modal.overwriteTitle': '⚠ 기존 파일 덮어쓰기', 'modal.submitTitle': 'Submit 미리보기 (dry-run)',
@@ -41,7 +42,7 @@ window.i18n = (() => {
       'img.shadow': '그림자 (.shadow)', 'img.rounded': '둥근 모서리 (.rounded-10)',
       // blocks
       'block.promptText': '프롬프트 내용…', 'block.term': '용어', 'block.def': '정의',
-      'block.addItem': '+ 항목 추가', 'block.rawWarn': '⚠ Raw markdown (그대로 출력됨)',
+      'block.addItem': '+ 항목 추가', 'block.remove': '삭제', 'block.rawWarn': '⚠ Raw markdown (그대로 출력됨)',
       'block.inlineMath': '인라인 LaTeX 입력:',
       // errors (by server `error` code)
       'err.no-target': '작업 경로가 지정되지 않았습니다.',
@@ -76,6 +77,7 @@ window.i18n = (() => {
       'draft.noDate': 'No date', 'draft.hasDraft': 'Has a draft', 'tree.newDrafts': 'Drafts (new)',
       'submit.fileToWrite': 'File to write', 'submit.overwrite': 'Overwrite', 'submit.newFile': 'New file',
       'submit.images': '{n} image(s) → {dir}/', 'submit.sourceMissing': 'source missing',
+      'submit.renamed': 'name taken — was {from}',
       'submit.extImages': '{n} external image(s) (downloaded on submit)', 'submit.mdPreview': 'Final markdown preview',
       'btn.cancel': 'Cancel', 'btn.overwriteSubmit': 'Overwrite & Submit', 'btn.submit': 'Submit',
       'modal.overwriteTitle': '⚠ Overwrite existing file', 'modal.submitTitle': 'Submit preview (dry-run)',
@@ -87,7 +89,7 @@ window.i18n = (() => {
       'img.w75': 'Width 75% (.w-75)', 'img.w50': 'Width 50% (.w-50)',
       'img.shadow': 'Shadow (.shadow)', 'img.rounded': 'Rounded corners (.rounded-10)',
       'block.promptText': 'Prompt text…', 'block.term': 'Term', 'block.def': 'Definition',
-      'block.addItem': '+ Add item', 'block.rawWarn': '⚠ Raw markdown (emitted as-is)',
+      'block.addItem': '+ Add item', 'block.remove': 'Remove', 'block.rawWarn': '⚠ Raw markdown (emitted as-is)',
       'block.inlineMath': 'Enter inline LaTeX:',
       'err.no-target': 'No work path is set.',
       'err.invalid-target': 'Invalid work path. (Make sure it is a Jekyll root with _config.yml)',

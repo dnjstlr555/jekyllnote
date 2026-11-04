@@ -21,10 +21,12 @@ export function blocksToMarkdown(editorData) {
 
   for (const block of blocks) {
     const md = serializeBlock(block, footnoteDefs);
-    if (md != null) parts.push(md);
+    if (md != null && md.trim() !== '') parts.push(md); // empty blocks leave no trace
   }
 
-  let body = parts.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+  // No global blank-line collapsing here: each text block is already normalized by
+  // tidy(), and a blanket collapse would also rewrite code/raw blocks' own content.
+  let body = parts.join('\n\n').trim();
 
   if (footnoteDefs.length) {
     body += '\n\n' + footnoteDefs.join('\n');
@@ -32,15 +34,43 @@ export function blocksToMarkdown(editorData) {
   return body + '\n';
 }
 
+/**
+ * Normalize the markdown of one text block so editor artifacts never reach the file
+ * as blank-looking lines (they render as stray empty paragraphs in Chirpy):
+ *  - whitespace-/NBSP-only lines become real blank lines
+ *  - a hard-break marker ("  ") is kept only when more text follows on the next line
+ *  - leading/trailing blank lines are dropped and repeated ones collapse to one
+ */
+function tidy(md) {
+  const lines = String(md).split('\n').map((l) => (l.trim() === '' ? '' : l));
+  for (let i = 0; i < lines.length; i++) {
+    const hardBreak = / {2,}$/.test(lines[i]) && lines[i + 1] !== undefined && lines[i + 1] !== '';
+    lines[i] = lines[i].replace(/\s+$/, '') + (hardBreak ? '  ' : '');
+  }
+  const out = [];
+  for (const l of lines) {
+    if (l === '' && (out.length === 0 || out[out.length - 1] === '')) continue;
+    out.push(l);
+  }
+  while (out.length && out[out.length - 1] === '') out.pop();
+  return out.join('\n');
+}
+
+// tidy() for places that must stay on one line (headers, table cells, list text…).
+const oneLine = (md) => tidy(md).replace(/\s*\n\s*/g, ' ').trim();
+
+const quoteLines = (text) => text.split('\n').map((l) => (l ? `> ${l}` : '>')).join('\n');
+
 function serializeBlock(block, footnoteDefs) {
   const d = block.data || {};
   switch (block.type) {
     case 'paragraph':
-      return inlineHtmlToMd(d.text || '');
+      return tidy(inlineHtmlToMd(d.text || ''));
 
     case 'header': {
       const level = Math.min(Math.max(Number(d.level) || 2, 1), 6);
-      return `${'#'.repeat(level)} ${inlineHtmlToMd(d.text || '')}`;
+      const text = oneLine(inlineHtmlToMd(d.text || ''));
+      return text ? `${'#'.repeat(level)} ${text}` : null;
     }
 
     case 'list':
@@ -48,19 +78,22 @@ function serializeBlock(block, footnoteDefs) {
 
     case 'checklist':
       return (d.items || [])
-        .map((it) => `- [${it.checked ? 'x' : ' '}] ${inlineHtmlToMd(it.text || '')}`)
+        .map((it) => ({ checked: it.checked, text: oneLine(inlineHtmlToMd(it.text || '')) }))
+        .filter((it) => it.text)
+        .map((it) => `- [${it.checked ? 'x' : ' '}] ${it.text}`)
         .join('\n');
 
     case 'quote': {
-      const text = inlineHtmlToMd(d.text || '').split('\n').map((l) => `> ${l}`).join('\n');
-      const cap = d.caption ? `\n> \n> — ${inlineHtmlToMd(d.caption)}` : '';
-      return text + cap;
+      const text = tidy(inlineHtmlToMd(d.text || ''));
+      if (!text) return null;
+      const cap = oneLine(inlineHtmlToMd(d.caption || ''));
+      return quoteLines(text) + (cap ? `\n>\n> — ${cap}` : '');
     }
 
     case 'prompt': {
       const type = ['tip', 'info', 'warning', 'danger'].includes(d.type) ? d.type : 'tip';
-      const text = inlineHtmlToMd(d.text || '').split('\n').map((l) => `> ${l}`).join('\n');
-      return `${text}\n{: .prompt-${type} }`;
+      const text = tidy(inlineHtmlToMd(d.text || ''));
+      return text ? `${quoteLines(text)}\n{: .prompt-${type} }` : null;
     }
 
     case 'code': {
@@ -84,10 +117,11 @@ function serializeBlock(block, footnoteDefs) {
     case 'deflist':
       return (d.items || [])
         .map((it) => {
-          const term = inlineHtmlToMd(it.term || '');
-          const defs = (it.definitions || []).map((x) => `: ${inlineHtmlToMd(x)}`).join('\n');
-          return `${term}\n${defs}`;
+          const term = oneLine(inlineHtmlToMd(it.term || ''));
+          const defs = (it.definitions || []).map((x) => oneLine(inlineHtmlToMd(x))).filter(Boolean);
+          return term || defs.length ? [term, ...defs.map((x) => `: ${x}`)].join('\n') : null;
         })
+        .filter(Boolean)
         .join('\n\n');
 
     case 'math':
@@ -96,7 +130,7 @@ function serializeBlock(block, footnoteDefs) {
     case 'footnotes': {
       // { items: [{id, text}] } -> collected, emitted at end
       for (const it of d.items || []) {
-        footnoteDefs.push(`[^${it.id}]: ${inlineHtmlToMd(it.text || '')}`);
+        footnoteDefs.push(`[^${it.id}]: ${oneLine(inlineHtmlToMd(it.text || ''))}`);
       }
       return null;
     }
@@ -106,7 +140,7 @@ function serializeBlock(block, footnoteDefs) {
 
     default:
       // Unknown block: preserve text if present, else drop.
-      return d.text ? inlineHtmlToMd(d.text) : null;
+      return d.text ? tidy(inlineHtmlToMd(d.text)) : null;
   }
 }
 
@@ -115,16 +149,23 @@ function serializeList(d, depth) {
   const items = d.items || [];
   const indent = '  '.repeat(depth);
   const lines = [];
-  items.forEach((item, i) => {
+  let n = 0; // counts emitted items so numbering has no gaps when empty ones are skipped
+  for (const item of items) {
     // @editorjs/list may give string items or {content, items} (nested)
     const content = typeof item === 'string' ? item : (item.content || '');
-    const marker = ordered ? `${i + 1}.` : '-';
-    lines.push(`${indent}${marker} ${inlineHtmlToMd(content)}`);
-    const nested = typeof item === 'object' && item.items && item.items.length
-      ? serializeList({ style: d.style, items: item.items }, depth + 1)
-      : '';
+    const nestedItems = typeof item === 'object' && item.items ? item.items : [];
+    // An item is one list entry: a blank line (from 2+ <br>) would end it, so an
+    // item's lines are joined with hard breaks instead.
+    const text = tidy(inlineHtmlToMd(content)).split('\n').filter((l) => l.trim());
+    const nested = nestedItems.length ? serializeList({ style: d.style, items: nestedItems }, depth + 1) : '';
+    if (text.length) {
+      n += 1;
+      const marker = ordered ? `${n}.` : '-';
+      const pad = indent + ' '.repeat(marker.length + 1);
+      lines.push(text.map((l, k) => (k === 0 ? `${indent}${marker} ` : pad) + l.replace(/\s+$/, '') + (k < text.length - 1 ? '  ' : '')).join('\n'));
+    }
     if (nested) lines.push(nested);
-  });
+  }
   return lines.join('\n');
 }
 
@@ -132,7 +173,7 @@ function serializeTable(d) {
   const rows = d.content || [];
   if (!rows.length) return '';
   const withHeadings = d.withHeadings;
-  const cell = (c) => inlineHtmlToMd(c || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  const cell = (c) => oneLine(inlineHtmlToMd(c || '')).replace(/\|/g, '\\|');
   const out = [];
   const headerRow = rows[0].map(cell);
   out.push(`| ${headerRow.join(' | ')} |`);

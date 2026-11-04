@@ -1,7 +1,7 @@
 // Builds the Editor.js instance with common + custom tools.
 // The image uploader targets the *current* draft (window.JN.draftId), so a draft
 // must exist before images are added (app.js guarantees this).
-window.createEditor = function createEditor(holder, data) {
+window.createEditor = function createEditor(holder, data, onChange) {
   // @editorjs/image requires the uploader to resolve to { success:1, file:{ url } }.
   // Our API returns { success:1, url, filename }, so reshape it here (single point).
   const toImg = (r) => ({ success: 1, file: { url: r.url, filename: r.filename } });
@@ -9,7 +9,7 @@ window.createEditor = function createEditor(holder, data) {
   const imageUploader = {
     async uploadByFile(file) {
       try {
-        ensureDraft();
+        await ensureDraft();
         const r = await API.uploadImage(window.JN.draftId, file, 'upload');
         console.log('[JekyllNote] uploadByFile ok:', r.url);
         return toImg(r);
@@ -22,7 +22,7 @@ window.createEditor = function createEditor(holder, data) {
     async uploadByUrl(url) {
       // Decision #1: localize every external URL immediately on insert.
       try {
-        ensureDraft();
+        await ensureDraft();
         // data: URI — decode client-side and upload the bytes (server can't fetch it).
         if (/^data:image\//i.test(url)) {
           const r = await API.uploadImage(window.JN.draftId, dataUrlToFile(url), 'clipboard');
@@ -90,6 +90,9 @@ window.createEditor = function createEditor(holder, data) {
     autofocus: true,
     placeholder: i18n.t('ed.placeholder'),
     tools,
+    // The documented change hook. (`editor.on('change')` is NOT an Editor.js
+    // event in 2.30 — subscribing to it never fires.)
+    onChange: () => { if (onChange) onChange(); },
   });
   return editor;
 };
@@ -166,6 +169,9 @@ function nonHttpHint(url) {
   return /^attachment:/i.test(url) ? i18n.t('err.notionAttachment') : i18n.t('err.badImageUrl');
 }
 
-function ensureDraft() {
+// Lazily create the draft (drafts are created on first edit/image, not on open).
+// Uploading an image can be the very first action, so create one on demand here.
+async function ensureDraft() {
+  if (window.ensureDraftExists) await window.ensureDraftExists();
   if (!window.JN || !window.JN.draftId) throw new Error(i18n.t('err.noDraft'));
 }

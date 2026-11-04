@@ -1,5 +1,6 @@
 import express from 'express';
 import fs from 'node:fs/promises';
+import { constants as FS } from 'node:fs';
 import path from 'node:path';
 import matter from 'gray-matter';
 import { request } from 'undici';
@@ -34,27 +35,33 @@ async function buildPlan(draft, root) {
   // Generate body markdown
   let body = blocksToMarkdown(draft.editorData || { blocks: [] });
 
-  const usedNames = new Set();
+  // Files already in the post's asset folder (e.g. from earlier submits). A new image
+  // must never take one of these names — the copy would silently overwrite it.
+  // Lowercased: Windows/macOS filesystems are case-insensitive.
+  const existing = new Set();
+  try {
+    for (const f of await fs.readdir(safeJoin(root, assetRelDir))) existing.add(f.toLowerCase());
+  } catch { /* folder doesn't exist yet */ }
+  const taken = new Set(existing);
 
-  // Relocate draft images referenced as /draft-assets/{id}/{file}
-  const images = [];
-  const seen = new Set();
+  // Relocate draft images referenced as /draft-assets/{id}/{file}. Names that don't
+  // collide are kept as-is; colliding ones are renumbered (image.png → image-3.png).
   const draftId = draft.id;
   const escId = draftId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const urlRe = new RegExp(`/draft-assets/${escId}/([^)\\s"']+)`, 'g');
-  body = body.replace(urlRe, (m, file) => {
-    const decoded = decodeURIComponent(file);
-    usedNames.add(decoded);
-    const targetUrl = '/' + path.posix.join(assetRelDir, decoded);
-    if (!seen.has(decoded)) {
-      seen.add(decoded);
-      images.push({
-        fromAbs: path.join(draftDir(draftId), 'images', decoded),
-        toRel: path.posix.join(assetRelDir, decoded),
-      });
-    }
-    return targetUrl;
-  });
+  const draftFiles = [...new Set([...body.matchAll(urlRe)].map((m) => decodeURIComponent(m[1])))];
+  const finalName = new Map();
+  for (const f of draftFiles) {
+    if (!existing.has(f.toLowerCase())) { finalName.set(f, f); taken.add(f.toLowerCase()); }
+  }
+  for (const f of draftFiles) if (!finalName.has(f)) finalName.set(f, freeName(f, taken));
+
+  const images = draftFiles.map((f) => ({
+    fromAbs: path.join(draftDir(draftId), 'images', f),
+    toRel: path.posix.join(assetRelDir, finalName.get(f)),
+    renamedFrom: finalName.get(f) !== f ? f : null,
+  }));
+  body = body.replace(urlRe, (m, file) => '/' + path.posix.join(assetRelDir, finalName.get(decodeURIComponent(file))));
 
   // Localize any remaining external http(s) images at submit time (the original
   // spec: external URLs become files on submit). Imported posts keep their remote
@@ -64,10 +71,10 @@ async function buildPlan(draft, root) {
   body = body.replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, (m, alt, url) => {
     let filename = extSeen.get(url);
     if (!filename) {
-      filename = uniqueExternalName(url, usedNames);
-      usedNames.add(filename);
+      const wanted = externalName(url);
+      filename = freeName(wanted, taken);
       extSeen.set(url, filename);
-      externalImages.push({ url, toRel: path.posix.join(assetRelDir, filename) });
+      externalImages.push({ url, toRel: path.posix.join(assetRelDir, filename), renamedFrom: filename !== wanted ? wanted : null });
     }
     return `![${alt}](/${path.posix.join(assetRelDir, filename)})`;
   });
@@ -87,17 +94,32 @@ async function buildPlan(draft, root) {
   return { targetRelPath, assetRelDir, exists, markdown, images, externalImages, frontmatter: fm };
 }
 
-function uniqueExternalName(url, used) {
+// File name an external image would like to have (from its URL).
+function externalName(url) {
   let base = 'image', ext = '';
   try {
     const bn = path.posix.basename(new URL(url).pathname);
     ext = path.posix.extname(bn);
     base = (bn.slice(0, bn.length - ext.length) || 'image').replace(/[\\/:*?"<>|]/g, '_');
   } catch { /* keep defaults */ }
-  if (!ext) ext = '.png';
-  let name = `${base}${ext}`, i = 1;
-  while (used.has(name)) { name = `${base}-${i}${ext}`; i += 1; }
-  return name;
+  return `${base}${ext || '.png'}`;
+}
+
+// Reserve `name` in `taken` (lowercased names). If it is already taken, return the
+// next free numbered name instead: image.png → image-1.png, image-2.png → image-3.png.
+function freeName(name, taken) {
+  const ext = path.posix.extname(name);
+  const stem = name.slice(0, name.length - ext.length);
+  let out = name;
+  if (taken.has(out.toLowerCase())) {
+    const m = stem.match(/^(.*?)-(\d+)$/);
+    const base = m ? m[1] : stem;
+    let n = m ? Number(m[2]) + 1 : 1;
+    while (taken.has(`${base}-${n}${ext}`.toLowerCase())) n += 1;
+    out = `${base}-${n}${ext}`;
+  }
+  taken.add(out.toLowerCase());
+  return out;
 }
 
 // POST /api/submit/plan { draftId } -> dry-run plan
@@ -140,7 +162,8 @@ submitRouter.post('/submit/commit', express.json(), async (req, res) => {
       const destAbs = safeJoin(root, img.toRel);
       await fs.mkdir(path.dirname(destAbs), { recursive: true });
       try {
-        await fs.copyFile(img.fromAbs, destAbs);
+        // EXCL: last line of defense — fail rather than overwrite an existing file.
+        await fs.copyFile(img.fromAbs, destAbs, FS.COPYFILE_EXCL);
         written.push(img.toRel);
       } catch (e) {
         console.error(`[JekyllNote] image-copy-failed ${img.toRel}: ${e.message}`);
@@ -155,7 +178,7 @@ submitRouter.post('/submit/commit', express.json(), async (req, res) => {
       try {
         const resp = await request(img.url, { maxRedirections: 5, headers: { 'user-agent': 'Mozilla/5.0 JekyllNote' } });
         if (resp.statusCode >= 400) throw new Error(`HTTP ${resp.statusCode}`);
-        await fs.writeFile(destAbs, Buffer.from(await resp.body.arrayBuffer()));
+        await fs.writeFile(destAbs, Buffer.from(await resp.body.arrayBuffer()), { flag: 'wx' }); // wx: never overwrite
         written.push(img.toRel);
       } catch (e) {
         console.error(`[JekyllNote] external-image-failed ${img.url} → ${img.toRel}: ${e.message}`);
