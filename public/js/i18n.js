@@ -29,7 +29,7 @@ window.i18n = (() => {
       'submit.images': '이미지 {n}개 → {dir}/', 'submit.sourceMissing': '원본 없음',
       'submit.renamed': '이름 충돌 — {from} 에서 변경',
       'submit.extImages': '외부 이미지 {n}개 (제출 시 다운로드)', 'submit.mdPreview': '최종 마크다운 미리보기',
-      'btn.cancel': '취소', 'btn.overwriteSubmit': '덮어쓰기하고 Submit', 'btn.submit': 'Submit',
+      'btn.cancel': '취소', 'btn.ok': '확인', 'btn.delete': '삭제', 'btn.overwriteSubmit': '덮어쓰기하고 Submit', 'btn.submit': 'Submit',
       'modal.overwriteTitle': '⚠ 기존 파일 덮어쓰기', 'modal.submitTitle': 'Submit 미리보기 (dry-run)',
       // frontmatter
       'fm.filename': '파일명', 'fm.rawYaml': 'raw YAML', 'fm.structured': '구조화 보기',
@@ -79,7 +79,7 @@ window.i18n = (() => {
       'submit.images': '{n} image(s) → {dir}/', 'submit.sourceMissing': 'source missing',
       'submit.renamed': 'name taken — was {from}',
       'submit.extImages': '{n} external image(s) (downloaded on submit)', 'submit.mdPreview': 'Final markdown preview',
-      'btn.cancel': 'Cancel', 'btn.overwriteSubmit': 'Overwrite & Submit', 'btn.submit': 'Submit',
+      'btn.cancel': 'Cancel', 'btn.ok': 'OK', 'btn.delete': 'Delete', 'btn.overwriteSubmit': 'Overwrite & Submit', 'btn.submit': 'Submit',
       'modal.overwriteTitle': '⚠ Overwrite existing file', 'modal.submitTitle': 'Submit preview (dry-run)',
       'fm.filename': 'Filename', 'fm.rawYaml': 'raw YAML', 'fm.structured': 'Structured',
       'fm.rawLabel': 'raw frontmatter (YAML)',

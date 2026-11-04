@@ -178,7 +178,7 @@ function deleteDraftBtn(id) {
   const del = document.createElement('button'); del.className = 'jn-add'; del.textContent = '🗑';
   del.onclick = async (e) => {
     e.stopPropagation();
-    if (!confirm(T('confirm.deleteDraft'))) return;
+    if (!await confirmDialog(T('confirm.deleteDraft'), T('btn.delete'), true)) return;
     await API.deleteDraft(id);
     if (window.JN.draftId === id) { window.JN.draftId = null; state.currentDraft = null; }
     refreshDrafts();
@@ -413,7 +413,7 @@ function renderSubmitModal(plan) {
   const foot = document.createElement('div');
   const cancel = btn(T('btn.cancel'), 'btn', () => closeModal());
   const confirm = btn(overwrite ? T('btn.overwriteSubmit') : T('btn.submit'), 'btn btn-primary', async () => {
-    if (badImgs.length && !window.confirm(T('confirm.missingImages'))) return;
+    if (badImgs.length && !await confirmDialog(T('confirm.missingImages'), T('btn.ok'))) return;
     try {
       const r = await API.submitCommit(window.JN.draftId, overwrite);
       // Answer #1: the file is now the source of truth — delete the draft.
@@ -446,6 +446,23 @@ function showModal(title, bodyNode, footNode) {
   back.appendChild(modal); root.appendChild(back);
 }
 function closeModal() { $('modal-root').innerHTML = ''; }
+// In-app replacement for window.confirm(). Native dialogs steal window focus in
+// Electron/Windows and leave every input uneditable afterwards. Stacks on top of
+// any open modal (own backdrop on <body>) and resolves true/false.
+function confirmDialog(message, okLabel, danger) {
+  return new Promise((resolve) => {
+    const back = document.createElement('div'); back.className = 'modal-backdrop'; back.style.zIndex = 150;
+    const done = (v) => { back.remove(); resolve(v); };
+    back.onclick = (e) => { if (e.target === back) done(false); };
+    const modal = document.createElement('div'); modal.className = 'modal'; modal.style.maxWidth = '420px';
+    const body = document.createElement('div'); body.className = 'modal-body'; body.textContent = message;
+    const foot = document.createElement('div'); foot.className = 'modal-foot';
+    const ok = btn(okLabel, danger ? 'btn btn-danger' : 'btn btn-primary', () => done(true));
+    foot.appendChild(btn(T('btn.cancel'), 'btn', () => done(false))); foot.appendChild(ok);
+    modal.appendChild(body); modal.appendChild(foot); back.appendChild(modal); document.body.appendChild(back);
+    ok.focus();
+  });
+}
 function btn(label, cls, onclick) { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = onclick; return b; }
 function toast(msg, kind) {
   const t = document.createElement('div'); t.className = 'toast ' + (kind || ''); t.textContent = msg;
